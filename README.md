@@ -1,6 +1,6 @@
 # NaturalCyclesCountdownApp
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.3.
+This project encompasses the solution to the Natural Cycles Frontend Challenge and can be viewed live at https://rstaszynska.github.io/natural-cycles-countdown-app/
 
 ## Development server
 
