@@ -43,33 +43,41 @@ export class FitTextDirective implements AfterViewInit, OnDestroy {
       const parent = element.parentElement;
       if (!parent) return;
 
-      // get current size before recalculation
-      const currentSize = parseFloat(getComputedStyle(element).fontSize);
-
       // start from maxFontSize
       element.style.fontSize = `${this.maxFontSize}px`;
       let fontSize = this.maxFontSize;
 
-      // shrink until it fits
+      // expand if necessary (length of text decreased or window resized)
+      while (element.scrollWidth < parent.clientWidth && fontSize < this.maxFontSize) {
+        fontSize += 1;
+        element.style.fontSize = `${fontSize}px`;
+        if (element.scrollWidth > parent.clientWidth) {
+          fontSize -= 1; // last step overflowed, revert
+          break;
+        }
+      }
+
+      // shrink if necessary (length of text increased or window resized)
       while (element.scrollWidth > parent.clientWidth && fontSize > 1) {
         fontSize -= 1;
         element.style.fontSize = `${fontSize}px`;
       }
 
-      // prevent tiny jumps
-      if (fontSize / currentSize > this.tolerance) {
+      // prevent tiny jumps using a tolerance threshold
+      const currentSize = parseFloat(getComputedStyle(element).fontSize);
+      if (fontSize / currentSize > this.tolerance && fontSize < currentSize) {
         element.style.fontSize = currentSize + 'px';
       }
     };
 
-    // Initial fit
+    // initial fit
     resize();
 
-    // Observe container resize
+    // observe container resize
     this.resizeObserver = new ResizeObserver(resize);
     this.resizeObserver.observe(element.parentElement!);
 
-    // Observe text changes
+    // observe text changes
     this.mutationObserver = new MutationObserver(resize);
     this.mutationObserver.observe(element, { childList: true, characterData: true, subtree: true });
   }
@@ -94,7 +102,6 @@ export class QuoteService {
   }
 }
 
-// App Component
 @Component({
   selector: 'app-root',
   standalone: true,
