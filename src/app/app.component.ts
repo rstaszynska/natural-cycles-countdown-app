@@ -157,7 +157,7 @@ export class App implements OnInit, OnDestroy {
     this.fetchQuote();
 
     if (this.isBrowser()) {
-      this.mql = window.matchMedia('(orientation: landscape) and (max-width: 768px)');
+      this.mql = window.matchMedia('(orientation: landscape) and (max-width: 650px)');
       this.isMobileLandscape = this.mql.matches;
       this.mql.addEventListener('change', this.handleOrientationChange);
     }
