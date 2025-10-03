@@ -1,5 +1,5 @@
 <main class="main">
-  <img class="logo" src="logo.webp" alt="Logo" width="200" />
+  <img class="logo" src="logo.webp" alt="Logo" width="200" *ngIf="!isMobileLandscape" />
   <div class="content">
     <h1 class="countdown-title" appFitText [maxFontSize]="70">
       {{ countdownTitle() }}
@@ -7,7 +7,7 @@
 
     <h2 class="timeLeftTitle" appFitText [maxFontSize]="70">{{ timeLeftTitle() }}</h2>
 
-    <div class="quote-container">
+    <div class="quote-container" *ngIf="!isMobileLandscape">
       <ng-container *ngIf="loadingQuote; else showQuote">
         <span class="loader">Loading quote...</span>
       </ng-container>

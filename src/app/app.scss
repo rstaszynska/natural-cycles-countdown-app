@@ -76,14 +76,15 @@ main {
 .form {
   display: flex;
   flex-direction: column; /* mobile-first */
-  row-gap: 1rem;
+  row-gap: 0.5rem;
+  margin-top: 2rem;
 }
 
 .quote-container {
   width: 100%; /* mobile-first */
   max-height: 300px;
   min-height: 60px;
-  margin: 2.5rem;
+  margin-top: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -122,11 +123,13 @@ main {
   .form {
     flex-direction: row;
     column-gap: 1.75rem;
+    margin-top: 2.75rem;
   }
 
   .quote-container {
     width: 75vw;
     margin-left: auto;
     margin-right: auto;
+    margin-top: 2rem;
   }
 }

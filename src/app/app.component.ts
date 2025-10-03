@@ -10,6 +10,7 @@ import {
   AfterViewInit,
   OnDestroy,
   Input,
+  OnInit,
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -25,7 +26,7 @@ import { CommonModule } from '@angular/common';
 })
 export class FitTextDirective implements AfterViewInit, OnDestroy {
   @Input() maxFontSize = 80;
-  @Input() tolerance = 0.95; // prevent unnecessary font changes
+  @Input() tolerance = 0.95;
 
   private resizeObserver!: ResizeObserver;
   private mutationObserver!: MutationObserver;
@@ -33,51 +34,43 @@ export class FitTextDirective implements AfterViewInit, OnDestroy {
   constructor(private el: ElementRef<HTMLElement>) {}
 
   ngAfterViewInit() {
-    if (typeof window === 'undefined') return; // SSR guard
+    if (typeof window === 'undefined') return;
 
     const element = this.el.nativeElement;
 
     const resize = () => {
       if (typeof window === 'undefined') return;
-
       const parent = element.parentElement;
       if (!parent) return;
 
-      // start from maxFontSize
-      element.style.fontSize = `${this.maxFontSize}px`;
       let fontSize = this.maxFontSize;
+      element.style.fontSize = `${fontSize}px`;
 
-      // expand if necessary (length of text decreased or window resized)
       while (element.scrollWidth < parent.clientWidth && fontSize < this.maxFontSize) {
         fontSize += 1;
         element.style.fontSize = `${fontSize}px`;
         if (element.scrollWidth > parent.clientWidth) {
-          fontSize -= 1; // last step overflowed, revert
+          fontSize -= 1;
           break;
         }
       }
 
-      // shrink if necessary (length of text increased or window resized)
       while (element.scrollWidth > parent.clientWidth && fontSize > 1) {
         fontSize -= 1;
         element.style.fontSize = `${fontSize}px`;
       }
 
-      // prevent tiny jumps using a tolerance threshold
       const currentSize = parseFloat(getComputedStyle(element).fontSize);
       if (fontSize / currentSize > this.tolerance && fontSize < currentSize) {
         element.style.fontSize = currentSize + 'px';
       }
     };
 
-    // initial fit
     resize();
 
-    // observe container resize
     this.resizeObserver = new ResizeObserver(resize);
     this.resizeObserver.observe(element.parentElement!);
 
-    // observe text changes
     this.mutationObserver = new MutationObserver(resize);
     this.mutationObserver.observe(element, { childList: true, characterData: true, subtree: true });
   }
@@ -94,9 +87,7 @@ export class FitTextDirective implements AfterViewInit, OnDestroy {
 })
 export class QuoteService {
   private apiUrl = 'https://dummyjson.com/quotes/random';
-
   constructor(private http: HttpClient) {}
-
   getRandomQuote(): Observable<any> {
     return this.http.get<any>(this.apiUrl);
   }
@@ -109,12 +100,7 @@ export class QuoteService {
   templateUrl: './app.html',
   styleUrls: ['./app.scss'],
 })
-export class App {
-  private loadFromStorageSafe(key: string): string | null {
-    const value = this.loadFromStorage(key);
-    return value?.trim() ? value : null;
-  }
-
+export class App implements OnInit, OnDestroy {
   protected readonly title = signal<string | null>(this.loadFromStorageSafe('title'));
   protected readonly date = signal<string | null>(this.loadFromStorageSafe('date'));
   private readonly now = signal(new Date());
@@ -126,28 +112,29 @@ export class App {
     else return '';
   });
 
-  protected readonly titlePresent = computed(() => {
-    return this.isBrowser() && !!this.title();
-  });
+  protected readonly titlePresent = computed(() => this.isBrowser() && !!this.title());
 
   protected readonly timeLeftTitle = computed(() => {
     const targetDate = this.date();
-    if (this.isBrowser()) {
-      if (!targetDate) return 'Enter a date to start countdown';
-      else {
-        const diff = this.calculateTimeLeft(new Date(targetDate), this.now());
-        if (!diff) return 'Countdown finished!';
-        return `${diff.days} days, ${diff.hours} h, ${diff.minutes} m, ${diff.seconds} s`;
-      }
-    } else return '';
+    if (!this.isBrowser()) return '';
+    if (!targetDate) return 'Enter a date to start countdown';
+    const diff = this.calculateTimeLeft(new Date(targetDate), this.now());
+    return diff
+      ? `${diff.days} days, ${diff.hours} h, ${diff.minutes} m, ${diff.seconds} s`
+      : 'Countdown finished!';
   });
 
   protected quote: string | null = null;
   protected loadingQuote = true;
 
+  // Flag for mobile landscape
+  protected isMobileLandscape = false;
+  private mql?: MediaQueryList;
+
   private quoteServiceInstance = inject(QuoteService);
 
   constructor() {
+    // Countdown timer effect
     effect(() => {
       const datePicked = this.date();
       if (!datePicked) return;
@@ -157,22 +144,32 @@ export class App {
       setInterval(() => this.now.set(new Date()), 1000);
     });
 
+    // LocalStorage sync
     effect(() => {
-      if (this.isBrowser()) {
-        localStorage.setItem('title', this.title() || '');
-      }
+      if (this.isBrowser()) localStorage.setItem('title', this.title() || '');
     });
-
     effect(() => {
-      if (this.isBrowser()) {
-        localStorage.setItem('date', this.date() || '');
-      }
+      if (this.isBrowser()) localStorage.setItem('date', this.date() || '');
     });
   }
 
   ngOnInit() {
     this.fetchQuote();
+
+    if (this.isBrowser()) {
+      this.mql = window.matchMedia('(orientation: landscape) and (max-width: 768px)');
+      this.isMobileLandscape = this.mql.matches;
+      this.mql.addEventListener('change', this.handleOrientationChange);
+    }
   }
+
+  ngOnDestroy() {
+    this.mql?.removeEventListener('change', this.handleOrientationChange);
+  }
+
+  private handleOrientationChange = (e: MediaQueryListEvent) => {
+    this.isMobileLandscape = e.matches;
+  };
 
   fetchQuote() {
     this.loadingQuote = true;
@@ -191,12 +188,10 @@ export class App {
   private calculateTimeLeft(target: Date, now: Date) {
     const diffMs = target.getTime() - now.getTime();
     if (diffMs <= 0) return null;
-
     const seconds = Math.floor(diffMs / 1000) % 60;
     const minutes = Math.floor(diffMs / (1000 * 60)) % 60;
     const hours = Math.floor(diffMs / (1000 * 60 * 60)) % 24;
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
     return { days, hours, minutes, seconds };
   }
 
@@ -204,10 +199,13 @@ export class App {
     return typeof window !== 'undefined' && !!window.localStorage;
   }
 
+  private loadFromStorageSafe(key: string): string | null {
+    const value = this.loadFromStorage(key);
+    return value?.trim() ? value : null;
+  }
+
   private loadFromStorage(key: string): string | null {
-    if (this.isBrowser()) {
-      return localStorage.getItem(key);
-    }
+    if (this.isBrowser()) return localStorage.getItem(key);
     return null;
   }
 }
